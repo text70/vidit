@@ -3,29 +3,51 @@
 
 const https = require('https');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
 const { execSync } = require('child_process');
 
 const PORT = parseInt(process.env.PORT, 10) || 8443;
-const HOST = process.env.HOST || '0.0.0.0';
 const ROOT = __dirname;
+const BIND_MODE = process.env.BIND || 'lan';
+
+function getNetworkIPs() {
+  const ips = ['127.0.0.1'];
+  const ifaces = os.networkInterfaces();
+  for (const name of Object.keys(ifaces).sort()) {
+    for (const iface of ifaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        ips.push(iface.address);
+      }
+    }
+  }
+  return [...new Set(ips)];
+}
+
+const NET_IPS = getNetworkIPs();
+const LAN_IP = NET_IPS.find(ip => ip !== '127.0.0.1') || null;
+const HOST = BIND_MODE === 'all' ? '0.0.0.0' : (LAN_IP || '127.0.0.1');
 
 function log(msg) {
   console.log('[vidit]', msg);
 }
 
 // ── Self-signed cert (ECDSA P-384, 10yr) ──────────────────────────────────
-function ensureCert() {
+function ensureCert(extraIPs) {
   const keyFile = path.join(ROOT, 'key.pem');
   const certFile = path.join(ROOT, 'cert.pem');
   if (fs.existsSync(keyFile) && fs.existsSync(certFile)) return;
+  const san = ['DNS:localhost', 'IP:127.0.0.1'];
+  for (const ip of (extraIPs || [])) {
+    if (ip !== '127.0.0.1') san.push(`IP:${ip}`);
+  }
   log('Generating self-signed ECDSA P-384 certificate (10yr)...');
   execSync(
     `openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:secp384r1 ` +
     `-days 3650 -nodes -keyout "${keyFile}" -out "${certFile}" ` +
     `-subj "/CN=Vidit" ` +
-    `-addext "subjectAltName=DNS:localhost,IP:127.0.0.1"`,
+    `-addext "subjectAltName=${san.join(',')}"`,
     { stdio: 'inherit' }
   );
   log('Certificate ready: cert.pem + key.pem');
@@ -98,7 +120,7 @@ function serve(req, res) {
 }
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────
-ensureCert();
+ensureCert(NET_IPS);
 
 const server = https.createServer(tlsOptions(), serve);
 
@@ -111,7 +133,12 @@ server.on('error', (err) => {
 });
 
 server.listen(PORT, HOST, () => {
-  log(`Server running at https://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
+  const hostDisplay = HOST === '0.0.0.0' ? 'localhost' : HOST;
+  log(`Mode: ${BIND_MODE}${BIND_MODE === 'lan' ? ' (use BIND=all for all interfaces)' : ''}`);
+  log(`Server running at https://${hostDisplay}:${PORT}`);
+  if (BIND_MODE === 'all' && LAN_IP) {
+    log(`LAN access:  https://${LAN_IP}:${PORT}`);
+  }
 });
 
 function shutdown() {

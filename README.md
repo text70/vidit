@@ -2,60 +2,79 @@
 
 ![demo](./demo.png)
 
-Real-time camera surveillance and scene analysis using llama.cpp server with a multimodal vision model
+Real-time camera surveillance and scene analysis powered by a local multimodal vision model (llama.cpp).
 
-## Prerequisites
+All processing stays on your machine — no cloud, no telemetry, no external servers.
 
-- [llama.cpp](https://github.com/ggml-org/llama.cpp) installed
-- A browser that supports `navigator.mediaDevices.getUserMedia` (Chrome, Firefox, Edge, or Safari)
-- [Node.js](https://nodejs.org) (for the HTTPS server)
+## Quick start
+
+```sh
+# 1. Start the vision model
+llama-server -hf ggml-org/SmolVLM-500M-Instruct-GGUF -ngl 99
+
+# 2. Start the HTTPS server
+node server.js
+
+# 3. Open the printed URL in your browser and click Start
+```
+
+## Requirements
+
+- [llama.cpp](https://github.com/ggml-org/llama.cpp) with a multimodal GGUF model
+- [Node.js](https://nodejs.org) 18+
+- A browser that supports `navigator.mediaDevices.getUserMedia` (Chrome, Firefox, Edge, Safari)
 
 ## How to run
 
-### 1. Start the vision model server
+### 1. Start the vision model
 
 ```sh
 llama-server -hf ggml-org/SmolVLM-500M-Instruct-GGUF -ngl 99
 ```
 
-The server starts on `http://localhost:8080` by default. Add `-ngl 99` for GPU acceleration (NVIDIA/AMD/Intel). See also [other multimodal models](https://github.com/ggml-org/llama.cpp/blob/master/docs/multimodal.md).
+Default port is `http://localhost:8080`. Add `-ngl 99` for GPU acceleration. See [supported models](https://github.com/ggml-org/llama.cpp/blob/master/docs/multimodal.md).
 
-### 2. Start the HTTPS page server
+### 2. Start the page server
 
 ```sh
 node server.js
 ```
 
-This serves the page over HTTPS at `https://localhost:8443` with:
-- **TLS 1.3 only** — no fallback to older protocols
-- **ECDSA P-384 self-signed certificate** — auto-generated on first run
-- **Security headers** — HSTS, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`
-- **CSP in HTML** — `default-src 'self'` with proper allowlists for camera, API, and Web Worker
+On first run it generates an ECDSA P-384 self-signed certificate, then prints the URL:
 
-Open `https://localhost:8443` in your browser. Accept the self-signed certificate warning (since the cert is generated locally).
+```
+[vidit] Server running at https://192.168.1.42:8443
+```
 
-> **Why the warning?** The certificate is self-signed — your browser can't verify it against a public Certificate Authority, so it shows a warning. This is normal and safe for local use. The connection is still encrypted with TLS 1.3 and a P-384 key. To eliminate the warning, use [`mkcert`](https://github.com/FiloSottile/mkcert) to generate a locally-trusted certificate: `mkcert -key-file key.pem -cert-file cert.pem localhost 127.0.0.1`.
+Open that URL in your browser. Your browser will warn about the self-signed cert — this is safe. The connection is encrypted with TLS 1.3.
 
-> You can also open `index.html` directly from the filesystem (`file://`), but camera access may be restricted depending on the browser.
+> **To remove the warning:** Use [`mkcert`](https://github.com/FiloSottile/mkcert): `mkcert -key-file key.pem -cert-file cert.pem localhost 127.0.0.1 <your-lan-ip>` then restart.
 
-### 3. Start the page
+#### Bind mode
 
-Click **Start** and grant camera permission when prompted.
-
-## User parameters
-
-| Parameter | Default | Description |
+| Command | Binds to | Use case |
 |---|---|---|
-| **Base API** | `http://localhost:8080` | llama.cpp server URL |
-| **Camera** | first device | Webcam selection from `enumerateDevices()` |
-| **Background mode** | off | Uses a Web Worker to avoid timer throttling when the tab is backgrounded |
-| **Interval** | 500ms | Delay between frame captures (100ms–5s) |
-| **Motion sensitivity** | Medium (2) | Motion-gated capture. Levels: Disabled, Low, Medium, High, Very High. Skips API calls when nothing changes. |
-| **JSON mode** | off | Checkbox hint — pair with a JSON instruction preset |
-| **Stream mode** | on | Uses SSE (`stream: true`) to render tokens incrementally via `ReadableStream` |
-| **Keywords** | (empty) | Comma-separated alert triggers. Matched responses highlight the log entry, flash the title, play a beep, and fire a browser notification. |
-| **Preset** | Custom | Built-in: *Describe scene*, *JSON objects*, *Surveillance*. Custom presets saved to localStorage. |
-| **Instruction** | (user-set) | Text prompt sent with each frame |
+| `node server.js` | Auto-detected LAN IP | Default — reachable on your local subnet only |
+| `BIND=all node server.js` | `0.0.0.0` (all interfaces) | Docker, VPNs, bridge networks |
+
+### 3. Use the page
+
+Click **Start** and grant camera permission. The page sends each webcam frame to the vision model and displays the response.
+
+## Interface
+
+| Setting | Default | What it does |
+|---|---|---|
+| **Base API** | `http://localhost:8080` | The llama.cpp server URL |
+| **Camera** | First device | Which webcam to use |
+| **Interval** | 500ms | Delay between frame captures |
+| **Motion sensitivity** | Medium | Skips API calls when nothing changes in frame |
+| **Stream mode** | On | Shows model responses token-by-token |
+| **JSON mode** | Off | Formats response as JSON |
+| **Keywords** | (empty) | Alert triggers — matched text flashes the title, plays a beep, and sends a notification |
+| **Preset** | Custom | Built-in presets: *Describe scene*, *JSON objects*, *Surveillance* |
+| **Instruction** | — | Text prompt sent with each frame |
+| **Background mode** | Off | Uses a Web Worker to keep timer accurate when tab is backgrounded |
 
 ### Keyboard shortcuts
 
@@ -68,8 +87,9 @@ Click **Start** and grant camera permission when prompted.
 
 ## Security
 
-- **Content Security Policy** — CSP meta tag restricts resource origins, blocks inline event handlers and `javascript:` URLs
-- **TLS 1.3 only** — the built-in server (`server.js`) accepts no connection below TLS 1.3, with only AEAD cipher suites
-- **ECDSA P-384 cert** — self-signed certificate uses a NIST P-384 key (generated on first `node server.js`)
-- **No dependencies** — the server uses only Node.js built-in modules; zero npm packages
-- **Local by default** — all camera frames stay on your machine; no telemetry, no external calls beyond the configured API URL
+- **TLS 1.3 only** — the built-in server rejects anything below TLS 1.3
+- **ECDSA P-384 certificate** — auto-generated on first run
+- **Content Security Policy** — restricts resource origins, blocks inline event handlers and `javascript:` URLs
+- **Security headers** — HSTS, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`
+- **Zero dependencies** — `server.js` uses only Node.js built-in modules; no npm packages
+- **Local by design** — all frames stay on your machine; the only network call is to the configured API endpoint
