@@ -1,265 +1,1020 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Camera Interaction App</title>
-    <style>
-        body {
-            font-family: sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
-            padding: 20px;
-            background-color: #f0f0f0;
-        }
-        .controls, .io-areas {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            background-color: #fff;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        .io-areas {
-            flex-direction: column;
-            align-items: stretch;
-        }
-        textarea {
-            width: 300px;
-            height: 80px;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        #videoFeed {
-            width: 480px;
-            height: 360px;
-            border: 2px solid #333;
-            background-color: #000;
-            border-radius: 8px;
-        }
-        #startButton {
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-            border: none;
-            border-radius: 4px;
-            color: white;
-        }
-        #startButton.start {
-            background-color: #28a745; /* Green */
-        }
-        #startButton.stop {
-            background-color: #dc3545; /* Red */
-        }
-        label {
-            font-weight: bold;
-        }
-        select {
-            padding: 8px;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-        }
-        .hidden {
-            display: none;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmolVLM Surveillance</title>
+<style>
+:root {
+  --bg: #eef0f3;
+  --surface: #fff;
+  --surface2: #f5f6f8;
+  --text: #1e1e2e;
+  --text2: #555;
+  --border: #d0d3da;
+  --accent: #2266cc;
+  --accent-hover: #1a52a8;
+  --danger: #cc3333;
+  --success: #2a8a4a;
+  --warn: #cc8800;
+  --shadow: 0 2px 8px rgba(0,0,0,0.08);
+  --radius: 6px;
+  --font: system-ui, -apple-system, sans-serif;
+}
+
+body.dark {
+  --bg: #121218;
+  --surface: #1c1c28;
+  --surface2: #252538;
+  --text: #e0e0ee;
+  --text2: #999;
+  --border: #333348;
+  --accent: #4a8cf7;
+  --accent-hover: #6aa0ff;
+  --shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+}
+
+#app {
+  max-width: 800px;
+  width: 100%;
+}
+
+/* ------ status bar ------ */
+#statusBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin-bottom: 12px;
+}
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+.dot.green { background: var(--success); }
+.dot.yellow { background: var(--warn); }
+.dot.red { background: var(--danger); }
+.dot.gray { background: var(--text2); }
+#statusText { flex: 1; font-size: 13px; color: var(--text2); }
+#darkToggle {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 10px;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+/* ------ media row ------ */
+#mediaRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+#videoFeed {
+  flex: 1;
+  min-width: 0;
+  background: #000;
+  border-radius: var(--radius);
+  aspect-ratio: 4/3;
+  object-fit: contain;
+}
+
+#framePreview {
+  width: 120px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: var(--radius);
+  border: 2px solid var(--border);
+  background: #000;
+  flex-shrink: 0;
+}
+#framePreview.hidden { display: none; }
+
+/* ------ panel cards ------ */
+.panel {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.row label {
+  font-size: 13px;
+  color: var(--text2);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+select, input[type="text"], input[type="number"] {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 13px;
+}
+
+input[type="range"] { width: 80px; }
+input[type="checkbox"] { accent-color: var(--accent); }
+
+#instructionText {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--font);
+  resize: vertical;
+  min-height: 36px;
+}
+
+/* ------ log ------ */
+#logContainer {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 0;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+#logHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text2);
+}
+
+#logCount { font-weight: 400; }
+
+#logEntries {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 4px 8px;
+}
+
+.log-entry {
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.log-entry:last-child { border-bottom: none; }
+
+.log-entry .ts {
+  font-size: 11px;
+  color: var(--text2);
+  font-family: monospace;
+  margin-right: 4px;
+}
+
+.log-entry .content { word-break: break-word; }
+
+.log-entry.alert {
+  background: rgba(204, 136, 0, 0.12);
+  border-left: 3px solid var(--warn);
+  padding-left: 6px;
+}
+
+.log-entry.error {
+  background: rgba(204, 51, 51, 0.10);
+  border-left: 3px solid var(--danger);
+  padding-left: 6px;
+}
+
+.log-entry.alert .badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: var(--warn);
+  color: #fff;
+  margin-right: 4px;
+}
+
+.log-entry.streaming { opacity: 0.7; }
+
+/* ------ buttons ------ */
+.btn {
+  padding: 8px 20px;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.2s;
+  color: #fff;
+}
+.btn-start { background: var(--success); }
+.btn-start.stop { background: var(--danger); }
+.btn-secondary { background: var(--accent); }
+.btn-secondary:hover { background: var(--accent-hover); }
+.btn-outline {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.btn-outline:hover { background: var(--surface2); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+
+#actionBar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ------ hidden auxiliary canvas ------ */
+#auxCanvas { display: none; }
+
+/* ------ responsive ------ */
+@media (max-width: 560px) {
+  body { padding: 8px; }
+  #framePreview { width: 80px; height: 60px; }
+  .row { flex-direction: column; align-items: stretch; }
+  .row label { justify-content: space-between; }
+  #logEntries { max-height: 200px; }
+}
+</style>
 </head>
 <body>
 
-    <h1>Camera Interaction App</h1>
+<div id="app">
 
-    <video id="videoFeed" autoplay playsinline></video>
-    <canvas id="canvas" class="hidden"></canvas> <!-- For capturing frames -->
+  <!-- status bar -->
+  <div id="statusBar">
+    <span id="statusDot" class="dot gray"></span>
+    <span id="statusText">Initializing camera…</span>
+    <button id="darkToggle" title="Toggle dark mode">🌙</button>
+  </div>
 
-    <div class="io-areas">
-        <div>
-            <label for="baseURL">Base API:</label><br>
-            <input id="baseURL" name="Instruction" value="http://localhost:8080"></textarea>
-        </div>
-        <div>
-            <label for="instructionText">Instruction:</label><br>
-            <textarea id="instructionText" style="height: 2em; width: 40em" name="Instruction"></textarea>
-        </div>
-        <div>
-            <label for="responseText">Response:</label><br>
-            <textarea id="responseText" style="height: 2em; width: 40em" name="Response" readonly placeholder="Server response will appear here..."></textarea>
-        </div>
+  <!-- base url + camera selector -->
+  <div class="panel">
+    <div class="row">
+      <label>Base API: <input id="baseURL" value="http://localhost:8080" style="width:200px"></label>
     </div>
-
-    <div class="controls">
-        <label for="intervalSelect">Interval between 2 requests:</label>
-        <select id="intervalSelect" name="Interval between 2 requests">
-            <option value="100">100ms</option>
-            <option value="250">250ms</option>
-            <option value="500" selected>500ms</option>
-            <option value="1000">1s</option>
-            <option value="2000">2s</option>
-        </select>
-        <button id="startButton" class="start">Start</button>
+    <div class="row" style="margin-top:6px">
+      <label>Camera: <select id="cameraSelect"><option value="">Loading…</option></select></label>
+      <label>Background mode: <input type="checkbox" id="bgMode"></label>
     </div>
+  </div>
 
-    <script>
-        const video = document.getElementById('videoFeed');
-        const canvas = document.getElementById('canvas');
-        const baseURL = document.getElementById('baseURL');
-        const instructionText = document.getElementById('instructionText');
-        const responseText = document.getElementById('responseText');
-        const intervalSelect = document.getElementById('intervalSelect');
-        const startButton = document.getElementById('startButton');
+  <!-- media -->
+  <div id="mediaRow">
+    <video id="videoFeed" autoplay playsinline muted></video>
+    <img id="framePreview" class="hidden" alt="captured frame">
+  </div>
+  <canvas id="auxCanvas"></canvas>
 
-        instructionText.value = "What do you see?"; // default instruction
+  <!-- controls -->
+  <div class="panel">
+    <div class="row">
+      <label>Interval: <select id="intervalSelect">
+        <option value="100">100ms</option>
+        <option value="250">250ms</option>
+        <option value="500" selected>500ms</option>
+        <option value="1000">1s</option>
+        <option value="2000">2s</option>
+        <option value="5000">5s</option>
+      </select></label>
+      <label>Motion: <select id="motionSensitivity">
+        <option value="0">Disabled</option>
+        <option value="1">Low</option>
+        <option value="2" selected>Medium</option>
+        <option value="3">High</option>
+        <option value="4">Very High</option>
+      </select></label>
+      <label>JSON: <input type="checkbox" id="jsonMode"></label>
+      <label>Stream: <input type="checkbox" id="streamMode" checked></label>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <label>Keywords: <input type="text" id="alertKeywords" placeholder="person,car,animal" style="width:160px"></label>
+      <label>Preset: <select id="presetSelect">
+        <option value="custom">Custom</option>
+        <option value="describe">Describe scene</option>
+        <option value="json-preset">JSON objects</option>
+        <option value="surveillance">Surveillance</option>
+      </select></label>
+      <button class="btn btn-outline" id="savePresetBtn" style="padding:4px 12px;font-size:12px">Save</button>
+    </div>
+    <textarea id="instructionText" rows="2" placeholder="Enter instruction for the model…"></textarea>
+  </div>
 
-        let stream;
-        let intervalId;
-        let isProcessing = false;
+  <!-- log -->
+  <div id="logContainer">
+    <div id="logHeader">
+      <span>Response Log</span>
+      <span id="logCount">0 entries</span>
+    </div>
+    <div id="logEntries"></div>
+  </div>
 
-        // Returns response text (string)
-        async function sendChatCompletionRequest(instruction, imageBase64URL) {
-            const response = await fetch(`${baseURL.value}/v1/chat/completions`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    max_tokens: 100,
-                    messages: [
-                        { role: 'user', content: [
-                            { type: 'text', text: instruction },
-                            { type: 'image_url', image_url: {
-                                url: imageBase64URL,
-                            } }
-                        ] },
-                    ]
-                })
-            });
-            if (!response.ok) {
-                const errorData = await response.text();
-                return `Server error: ${response.status} - ${errorData}`;
-            }
-            const data = await response.json();
-            return data.choices[0].message.content;
-        }
+  <!-- actions -->
+  <div id="actionBar">
+    <button id="startBtn" class="btn btn-start">▶ Start</button>
+    <button id="exportBtn" class="btn btn-secondary">📥 Export Log</button>
+    <button id="clearLogBtn" class="btn btn-outline">Clear Log</button>
+    <span id="fpsDisplay" style="font-size:12px;color:var(--text2);align-self:center;margin-left:auto"></span>
+  </div>
 
-        // 1. Ask for camera permission on load
-        async function initCamera() {
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-                video.srcObject = stream;
-                responseText.value = "Camera access granted. Ready to start.";
-            } catch (err) {
-                console.error("Error accessing camera:", err);
-                responseText.value = `Error accessing camera: ${err.name} - ${err.message}. Please ensure permissions are granted and you are on HTTPS or localhost.`;
-                alert(`Error accessing camera: ${err.name}. Make sure you've granted permission and are on HTTPS or localhost.`);
-            }
-        }
+</div>
 
-        function captureImage() {
-            if (!stream || !video.videoWidth) {
-                console.warn("Video stream not ready for capture.");
-                return null;
-            }
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const context = canvas.getContext('2d');
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            return canvas.toDataURL('image/jpeg', 0.8); // Use JPEG for smaller size, 0.8 quality
-        }
+<script>
+// ============================================================
+//  State
+// ============================================================
+let stream = null;
+let isProcessing = false;
+let frameBusy = false;
+let worker = null;
+let lastFrameData = null;
+let lastFrameTimestamp = 0;
+let responseLog = [];
+let retryCount = 0;
+let frameCount = 0;
+let startTime = 0;
+let bgModeEnabled = false;
+const MAX_RETRIES = 3;
+const MAX_LOG_ENTRIES = 1000;
 
-        async function sendData() {
-            if (!isProcessing) return; // Ensure we don't have overlapping requests if processing takes longer than interval
+const BUILTIN_PRESETS = {
+  'describe': {
+    instruction: 'Describe what you see in detail, including objects, people, and their positions.',
+    jsonMode: false, keywords: '', interval: '1000', motionSensitivity: 0
+  },
+  'json-preset': {
+    instruction: 'Describe the scene. Return ONLY valid JSON with keys: objects (array of {name,count,position}), description (string), activity (string).',
+    jsonMode: true, keywords: '', interval: '1000', motionSensitivity: 0
+  },
+  'surveillance': {
+    instruction: 'You are a security camera. Report any people, vehicles, or unusual activity concisely. If nothing notable, say "All clear."',
+    jsonMode: false, keywords: 'person,car,animal', interval: '500', motionSensitivity: 2
+  }
+};
 
-            const instruction = instructionText.value;
-            const imageBase64URL = captureImage();
+// ============================================================
+//  DOM refs
+// ============================================================
+const video = document.getElementById('videoFeed');
+const auxCanvas = document.getElementById('auxCanvas');
+const framePreview = document.getElementById('framePreview');
+const baseURL = document.getElementById('baseURL');
+const instructionText = document.getElementById('instructionText');
+const intervalSelect = document.getElementById('intervalSelect');
+const cameraSelect = document.getElementById('cameraSelect');
+const motionSensitivity = document.getElementById('motionSensitivity');
+const jsonMode = document.getElementById('jsonMode');
+const streamMode = document.getElementById('streamMode');
+const alertKeywords = document.getElementById('alertKeywords');
+const presetSelect = document.getElementById('presetSelect');
+const startBtn = document.getElementById('startBtn');
+const exportBtn = document.getElementById('exportBtn');
+const clearLogBtn = document.getElementById('clearLogBtn');
+const logEntries = document.getElementById('logEntries');
+const logCount = document.getElementById('logCount');
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const darkToggle = document.getElementById('darkToggle');
+const savePresetBtn = document.getElementById('savePresetBtn');
+const fpsDisplay = document.getElementById('fpsDisplay');
+const bgMode = document.getElementById('bgMode');
 
-            if (!imageBase64URL) {
-                responseText.value = "Failed to capture image. Stream might not be active.";
-                // Optionally stop processing if image capture fails consistently
-                // handleStop();
-                return;
-            }
+// ============================================================
+//  localStorage
+// ============================================================
+function saveState() {
+  const state = {
+    baseURL: baseURL.value,
+    instruction: instructionText.value,
+    interval: intervalSelect.value,
+    motionSensitivity: motionSensitivity.value,
+    jsonMode: jsonMode.checked,
+    streamMode: streamMode.checked,
+    alertKeywords: alertKeywords.value,
+    preset: presetSelect.value,
+    bgMode: bgMode.checked,
+    dark: document.body.classList.contains('dark')
+  };
+  try { localStorage.setItem('smolvlm-state', JSON.stringify(state)); } catch (e) {}
+}
 
-            const payload = {
-                instruction: instruction,
-                imageBase64URL: imageBase64URL
-            };
+function loadState() {
+  try {
+    const raw = localStorage.getItem('smolvlm-state');
+    if (!raw) return;
+    const state = JSON.parse(raw);
+    if (state.baseURL) baseURL.value = state.baseURL;
+    if (state.instruction) instructionText.value = state.instruction;
+    if (state.interval) intervalSelect.value = state.interval;
+    if (state.motionSensitivity !== undefined) motionSensitivity.value = state.motionSensitivity;
+    jsonMode.checked = !!state.jsonMode;
+    streamMode.checked = state.streamMode !== false;
+    if (state.alertKeywords) alertKeywords.value = state.alertKeywords;
+    if (state.preset) presetSelect.value = state.preset;
+    bgMode.checked = !!state.bgMode;
+    if (state.dark) document.body.classList.add('dark');
+  } catch (e) {}
+}
 
-            try {
-                const response = await sendChatCompletionRequest(payload.instruction, payload.imageBase64URL);
-                responseText.value = response;
-            } catch (error) {
-                console.error('Error sending data:', error);
-                responseText.value = `Error: ${error.message}`;
-            }
-        }
+[
+  baseURL, instructionText, intervalSelect, motionSensitivity,
+  jsonMode, streamMode, alertKeywords, presetSelect, bgMode
+].forEach(el => {
+  el.addEventListener('change', saveState);
+  if (el.tagName === 'INPUT' && !['checkbox', 'range'].includes(el.type)) {
+    el.addEventListener('input', saveState);
+  }
+});
 
-        function handleStart() {
-            if (!stream) {
-                responseText.value = "Camera not available. Cannot start.";
-                alert("Camera not available. Please grant permission first.");
-                return;
-            }
-            isProcessing = true;
-            startButton.textContent = "Stop";
-            startButton.classList.remove('start');
-            startButton.classList.add('stop');
+// ============================================================
+//  Dark mode
+// ============================================================
+darkToggle.addEventListener('click', () => {
+  document.body.classList.toggle('dark');
+  saveState();
+});
 
-            instructionText.disabled = true;
-            intervalSelect.disabled = true;
+// ============================================================
+//  Camera
+// ============================================================
+async function initCamera(deviceId) {
+  try {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    const constraints = { video: { width: 640, height: 480 }, audio: false };
+    if (deviceId) constraints.video.deviceId = { exact: deviceId };
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = stream;
+    await video.play();
+    setStatus('green', 'Camera active');
+    await enumerateCameras();
+  } catch (err) {
+    setStatus('red', `Camera error: ${err.message}`);
+    console.error(err);
+  }
+}
 
-            responseText.value = "Processing started...";
+async function enumerateCameras() {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cams = devices.filter(d => d.kind === 'videoinput');
+    const currentId = stream?.getVideoTracks()[0]?.getSettings().deviceId;
+    cameraSelect.innerHTML = cams.map(c =>
+      `<option value="${c.deviceId}" ${c.deviceId === currentId ? 'selected' : ''}>${c.label || 'Camera'}</option>`
+    ).join('');
+  } catch (e) {}
+}
 
-            const intervalMs = parseInt(intervalSelect.value, 10);
-            
-            // Initial immediate call
-            sendData(); 
-            
-            // Then set interval
-            intervalId = setInterval(sendData, intervalMs);
-        }
+cameraSelect.addEventListener('change', () => initCamera(cameraSelect.value));
 
-        function handleStop() {
-            isProcessing = false;
-            if (intervalId) {
-                clearInterval(intervalId);
-                intervalId = null;
-            }
-            startButton.textContent = "Start";
-            startButton.classList.remove('stop');
-            startButton.classList.add('start');
+// ============================================================
+//  Connection health
+// ============================================================
+async function checkConnection() {
+  try {
+    const res = await fetch(`${baseURL.value}/v1/models`, { signal: AbortSignal.timeout(5000) });
+    if (res.ok) { setStatus('green', 'Server connected'); return true; }
+    setStatus('yellow', `Server: ${res.status}`);
+    return false;
+  } catch (err) {
+    setStatus('red', 'Server unreachable');
+    return false;
+  }
+}
 
-            instructionText.disabled = false;
-            intervalSelect.disabled = false;
-            if (responseText.value.startsWith("Processing started...")) {
-                responseText.value = "Processing stopped.";
-            }
-        }
+function setStatus(color, msg) {
+  statusDot.className = `dot ${color}`;
+  statusText.textContent = msg;
+}
 
-        startButton.addEventListener('click', () => {
-            if (isProcessing) {
-                handleStop();
-            } else {
-                handleStart();
-            }
+let healthInterval = null;
+function startHealthCheck() {
+  stopHealthCheck();
+  checkConnection();
+  healthInterval = setInterval(checkConnection, 15000);
+}
+function stopHealthCheck() {
+  if (healthInterval) { clearInterval(healthInterval); healthInterval = null; }
+}
+
+// ============================================================
+//  Frame capture & motion
+// ============================================================
+function captureImage() {
+  if (!stream || !video.videoWidth) return null;
+  const ctx = auxCanvas.getContext('2d');
+  auxCanvas.width = video.videoWidth;
+  auxCanvas.height = video.videoHeight;
+  ctx.drawImage(video, 0, 0);
+  return auxCanvas.toDataURL('image/jpeg', 0.8);
+}
+
+function getImageData() {
+  const ctx = auxCanvas.getContext('2d');
+  return ctx.getImageData(0, auxCanvas.width, auxCanvas.height);
+}
+
+function computeMotionScore(current, prev, w, h) {
+  const step = 8;
+  let diff = 0, count = 0;
+  for (let y = 0; y < h; y += step) {
+    for (let x = 0; x < w; x += step) {
+      const i = (y * w + x) * 4;
+      diff += Math.abs(current[i] - prev[i])
+            + Math.abs(current[i+1] - prev[i+1])
+            + Math.abs(current[i+2] - prev[i+2]);
+      count++;
+    }
+  }
+  return diff / count;
+}
+
+function hasMotion() {
+  const sens = parseInt(motionSensitivity.value, 10);
+  if (sens === 0) return true;
+  const thresholds = [0, 200, 100, 40, 5];
+  const ctx = auxCanvas.getContext('2d');
+  const w = auxCanvas.width, h = auxCanvas.height;
+  if (!w || !h) return false;
+  const currentData = ctx.getImageData(0, 0, w, h);
+  if (!lastFrameData) {
+    lastFrameData = currentData;
+    return false;
+  }
+  const score = computeMotionScore(currentData.data, lastFrameData.data, w, h);
+  lastFrameData = currentData;
+  return score > (thresholds[sens] || 100);
+}
+
+// ============================================================
+//  API calls
+// ============================================================
+function buildPayload(instruction, imageBase64URL, stream) {
+  return {
+    max_tokens: 100,
+    stream: stream || false,
+    messages: [{
+      role: 'user',
+      content: [
+        { type: 'text', text: instruction },
+        { type: 'image_url', image_url: { url: imageBase64URL } }
+      ]
+    }]
+  };
+}
+
+async function sendRequest(instruction, imageBase64URL) {
+  const res = await fetch(`${baseURL.value}/v1/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(buildPayload(instruction, imageBase64URL, false))
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`${res.status} ${text.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  return data.choices[0].message.content;
+}
+
+async function sendRequestStreaming(instruction, imageBase64URL, onToken) {
+  const res = await fetch(`${baseURL.value}/v1/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(buildPayload(instruction, imageBase64URL, true))
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`${res.status} ${text.slice(0, 200)}`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let full = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6).trim();
+      if (data === '[DONE]') break;
+      try {
+        const parsed = JSON.parse(data);
+        const chunk = parsed.choices?.[0]?.delta?.content || '';
+        if (chunk) { full += chunk; onToken(full); }
+      } catch (e) {}
+    }
+  }
+  return full;
+}
+
+// ============================================================
+//  Worker-based background timer
+// ============================================================
+function startBackgroundWorker(intervalMs) {
+  stopBackgroundWorker();
+  const code = `onmessage=function(e){
+    if(e.data.type==="start"){const id=setInterval(()=>postMessage("tick"),e.data.interval);onmessage=e=>{if(e.data.type==="stop"){clearInterval(id);close()}}}
+  }`;
+  const blob = new Blob([code], { type: 'application/javascript' });
+  worker = new Worker(URL.createObjectURL(blob));
+  worker.postMessage({ type: 'start', interval: intervalMs });
+  worker.onmessage = () => { if (isProcessing) processFrame(); };
+}
+
+function stopBackgroundWorker() {
+  if (worker) { worker.postMessage({ type: 'stop' }); worker = null; }
+}
+
+// ============================================================
+//  Main loop
+// ============================================================
+let pendingTimeout = null;
+
+function scheduleNext(ms) {
+  if (!isProcessing) return;
+  if (bgModeEnabled && worker) {
+    // worker handles scheduling
+  } else {
+    pendingTimeout = setTimeout(processFrame, ms);
+  }
+}
+
+async function processFrame() {
+  if (!isProcessing || frameBusy) return;
+  frameBusy = true;
+
+  try {
+    const dataUrl = captureImage();
+    if (!dataUrl) { frameBusy = false; scheduleNext(1000); return; }
+
+    framePreview.src = dataUrl;
+    framePreview.classList.remove('hidden');
+
+    if (!hasMotion()) { frameBusy = false; scheduleNext(getInterval()); return; }
+
+    const instruction = instructionText.value || 'What do you see?';
+    const useStream = streamMode.checked;
+    let entry;
+
+    try {
+      if (useStream) {
+        entry = addLogEntry('', Date.now(), false, true, false);
+        const full = await sendRequestStreaming(instruction, dataUrl, (partial) => {
+          entry.content = partial;
+          renderEntry(entry);
         });
+        entry.content = full;
+        entry.streaming = false;
+        renderEntry(entry);
+        afterResponse(entry);
+      } else {
+        const text = await sendRequest(instruction, dataUrl);
+        entry = addLogEntry(text, Date.now(), false, false, false);
+        afterResponse(entry);
+      }
+      retryCount = 0;
+      setStatus('green', 'OK');
+    } catch (err) {
+      if (retryCount < MAX_RETRIES) {
+        retryCount++;
+        const delay = [0, 1000, 2000, 4000][Math.min(retryCount, 3)];
+        setStatus('yellow', `Retry ${retryCount}/${MAX_RETRIES} in ${delay}ms…`);
+        setTimeout(processFrame, delay);
+        frameBusy = false;
+        return;
+      }
+      setStatus('red', err.message);
+      addLogEntry(`Error: ${err.message}`, Date.now(), false, false, true);
+      retryCount = 0;
+    }
+  } finally {
+    frameBusy = false;
+  }
 
-        // Initialize camera when the page loads
-        window.addEventListener('DOMContentLoaded', initCamera);
+  scheduleNext(getInterval());
+}
 
-        // Optional: Stop stream when page is closed/navigated away to release camera
-        window.addEventListener('beforeunload', () => {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-            }
-            if (intervalId) {
-                clearInterval(intervalId);
-            }
-        });
+function getInterval() {
+  return parseInt(intervalSelect.value, 10);
+}
 
-    </script>
+function afterResponse(entry) {
+  frameCount++;
+  const elapsed = (Date.now() - startTime) / 1000;
+  if (elapsed > 0) fpsDisplay.textContent = `${(frameCount / elapsed).toFixed(1)} FPS`;
+
+  const keywords = alertKeywords.value.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
+  const contentLower = entry.content.toLowerCase();
+  const matched = keywords.filter(k => k && contentLower.includes(k));
+  if (matched.length) {
+    entry.alert = true;
+    entry.keywords = matched;
+    entry.content += ` 🚨[${matched.join(', ')}]`;
+    renderEntry(entry);
+    triggerAlert(matched);
+  }
+}
+
+// ============================================================
+//  Logging
+// ============================================================
+function addLogEntry(text, ts, alert, streaming, error) {
+  const entry = { content: text, timestamp: ts, alert: !!alert, streaming: !!streaming, error: !!error, keywords: [] };
+  responseLog.push(entry);
+  if (responseLog.length > MAX_LOG_ENTRIES) responseLog.shift();
+  renderEntry(entry);
+  logCount.textContent = `${responseLog.length} entries`;
+  return entry;
+}
+
+function renderEntry(entry) {
+  if (entry._el) {
+    updateEntryElement(entry);
+  } else {
+    const el = document.createElement('div');
+    el.className = 'log-entry';
+    const ts = document.createElement('span');
+    ts.className = 'ts';
+    ts.textContent = formatTime(entry.timestamp);
+    el.appendChild(ts);
+    const body = document.createElement('span');
+    body.className = 'content';
+    el.appendChild(body);
+    logEntries.appendChild(el);
+    entry._el = el;
+    updateEntryElement(entry);
+  }
+  scrollLog();
+}
+
+function updateEntryElement(entry) {
+  const el = entry._el;
+  if (!el) return;
+  el.className = 'log-entry';
+  if (entry.alert) el.classList.add('alert');
+  if (entry.error) el.classList.add('error');
+  if (entry.streaming) el.classList.add('streaming');
+  const body = el.querySelector('.content');
+  body.textContent = entry.content;
+}
+
+function scrollLog() {
+  logEntries.scrollTop = logEntries.scrollHeight;
+}
+
+function formatTime(ts) {
+  const d = new Date(ts);
+  return d.toLocaleTimeString();
+}
+
+// ============================================================
+//  Alerts
+// ============================================================
+function triggerAlert(keywords) {
+  const orig = document.title;
+  let flash;
+  function toggle() {
+    document.title = document.title === orig ? `🚨 ${keywords.join(', ')}` : orig;
+  }
+  flash = setInterval(toggle, 800);
+  playAlertSound();
+  try {
+    if (Notification.permission === 'granted') {
+      new Notification('SmolVLM Alert', { body: `Detected: ${keywords.join(', ')}` });
+    } else if (Notification.permission !== 'denied') {
+      Notification.requestPermission();
+    }
+  } catch (e) {}
+  setTimeout(() => { clearInterval(flash); document.title = orig; }, 5000);
+}
+
+function playAlertSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    osc.type = 'square';
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.4);
+    setTimeout(() => {
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.frequency.value = 1100;
+      osc2.type = 'square';
+      gain2.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      osc2.start(ctx.currentTime);
+      osc2.stop(ctx.currentTime + 0.3);
+    }, 200);
+  } catch (e) {}
+}
+
+// ============================================================
+//  Start / Stop
+// ============================================================
+async function handleStart() {
+  if (isProcessing) return;
+  const ok = await checkConnection();
+  if (!ok) { alert('Cannot reach the server at ' + baseURL.value); return; }
+
+  isProcessing = true;
+  startBtn.textContent = '⏹ Stop';
+  startBtn.classList.add('stop');
+  bgModeEnabled = bgMode.checked;
+  frameCount = 0;
+  startTime = Date.now();
+
+  if (bgModeEnabled) {
+    startBackgroundWorker(getInterval());
+  }
+
+  scheduleNext(0);
+}
+
+function handleStop() {
+  isProcessing = false;
+  if (pendingTimeout) { clearTimeout(pendingTimeout); pendingTimeout = null; }
+  stopBackgroundWorker();
+  startBtn.textContent = '▶ Start';
+  startBtn.classList.remove('stop');
+  fpsDisplay.textContent = '';
+}
+
+startBtn.addEventListener('click', () => {
+  if (isProcessing) handleStop();
+  else handleStart();
+});
+
+// ============================================================
+//  Export
+// ============================================================
+exportBtn.addEventListener('click', () => {
+  if (!responseLog.length) return;
+  const data = JSON.stringify(responseLog.map(e => ({
+    timestamp: new Date(e.timestamp).toISOString(),
+    content: e.content,
+    alert: e.alert,
+    error: e.error,
+    keywords: e.keywords
+  })), null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `surveillance-${new Date().toISOString().slice(0,19)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+clearLogBtn.addEventListener('click', () => {
+  responseLog = [];
+  logEntries.innerHTML = '';
+  logCount.textContent = '0 entries';
+});
+
+// ============================================================
+//  Presets
+// ============================================================
+function loadPreset(name) {
+  const presets = { ...BUILTIN_PRESETS, ...getCustomPresets() };
+  const p = presets[name];
+  if (!p) return;
+  instructionText.value = p.instruction;
+  jsonMode.checked = !!p.jsonMode;
+  alertKeywords.value = p.keywords || '';
+  intervalSelect.value = p.interval || '500';
+  motionSensitivity.value = p.motionSensitivity || 0;
+  saveState();
+}
+
+function getCustomPresets() {
+  try { return JSON.parse(localStorage.getItem('smolvlm-presets') || '{}'); } catch (e) { return {}; }
+}
+
+function saveCustomPreset(name) {
+  const presets = getCustomPresets();
+  presets[name] = {
+    instruction: instructionText.value,
+    jsonMode: jsonMode.checked,
+    keywords: alertKeywords.value,
+    interval: intervalSelect.value,
+    motionSensitivity: motionSensitivity.value
+  };
+  localStorage.setItem('smolvlm-presets', JSON.stringify(presets));
+  const opt = document.createElement('option');
+  opt.value = name;
+  opt.textContent = name;
+  presetSelect.insertBefore(opt, presetSelect.querySelector('[value="custom"]')?.nextSibling || null);
+  presetSelect.value = name;
+}
+
+presetSelect.addEventListener('change', () => {
+  const val = presetSelect.value;
+  if (val !== 'custom') loadPreset(val);
+  saveState();
+});
+
+savePresetBtn.addEventListener('click', () => {
+  const name = prompt('Preset name:');
+  if (name && name.trim()) saveCustomPreset(name.trim());
+});
+
+// ============================================================
+//  Keyboard shortcuts
+// ============================================================
+function setupKeyboardShortcuts() {
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+    switch (e.key) {
+      case ' ':
+        e.preventDefault();
+        isProcessing ? handleStop() : handleStart();
+        break;
+      case 'i':
+      case 'I':
+        e.preventDefault();
+        instructionText.focus();
+        break;
+      case 'e':
+      case 'E':
+        e.preventDefault();
+        if (e.ctrlKey || e.metaKey) exportBtn.click();
+        break;
+      case 'd':
+      case 'D':
+        e.preventDefault();
+        document.body.classList.toggle('dark');
+        saveState();
+        break;
+    }
+  });
+}
+
+// ============================================================
+//  Init
+// ============================================================
+loadState();
+// Respect system dark mode preference if user hasn't explicitly toggled
+const stored = JSON.parse(localStorage.getItem('smolvlm-state') || '{}');
+if (stored.dark === undefined && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+  document.body.classList.add('dark');
+}
+instructionText.value = instructionText.value || 'What do you see?';
+setupKeyboardShortcuts();
+initCamera();
+startHealthCheck();
+window.addEventListener('beforeunload', () => {
+  handleStop();
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  stopHealthCheck();
+});
+</script>
+
 </body>
 </html>
