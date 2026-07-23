@@ -7,7 +7,7 @@ Real-time camera surveillance and scene analysis using llama.cpp server with a m
 ## How to setup
 
 1. Install [llama.cpp](https://github.com/ggml-org/llama.cpp)
-2. Run `llama-server -hf ggml-org/SmolVLM-500M-Instruct-GGUF`  
+2. Run `llama-server -hf ggml-org/<Your-Vision-Model>.GGUF`  
    Note: you may need to add `-ngl 99` to enable GPU (if you are using NVidia/AMD/Intel GPU)  
    Note (2): You can also try other models [here](https://github.com/ggml-org/llama.cpp/blob/master/docs/multimodal.md)
 3. Open `index.html`
