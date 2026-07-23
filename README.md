@@ -50,14 +50,14 @@ Open that URL in your browser. Your browser will warn about the self-signed cert
 
 > **To remove the warning:** Use [`mkcert`](https://github.com/FiloSottile/mkcert): `mkcert -key-file key.pem -cert-file cert.pem localhost 127.0.0.1 <your-lan-ip>` then restart.
 
-#### Bind mode
+#### LAN mode vs Open Internet mode
 
 | Command | Binds to | Use case |
 |---|---|---|
 | `node server.js` | Auto-detected LAN IP | Default — reachable on your local subnet only |
-| `BIND=all node server.js` | `0.0.0.0` (all interfaces) | Docker, VPNs, bridge networks |
+| `BIND=all node server.js` | `0.0.0.0` (all interfaces) | Docker, VPNs, bridge networks (MAKE SURE YOU HAVE A FIREWALL like ufw or similar enabled if you are going to rawdog the internet! |
 
-### 3. Use the page
+### 3. How to use the app
 
 Click **Start** and grant camera permission. The page sends each webcam frame to the vision model and displays the response.
 
