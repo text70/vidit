@@ -23,6 +23,7 @@ node server.js
 - [llama.cpp](https://github.com/ggml-org/llama.cpp) with a multimodal VLM GGUF model
 - [Node.js](https://nodejs.org) 18+
 - A browser that supports `navigator.mediaDevices.getUserMedia` (Chrome, Firefox, Edge, Safari)
+- Video camera(s) configured on your server OS. 
 
 ## How to run
 
