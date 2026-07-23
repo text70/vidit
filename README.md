@@ -43,7 +43,7 @@ node server.js
 On first run it generates an ECDSA P-384 self-signed certificate, then prints the URL:
 
 ```
-[vidit] Server running at https://192.168.1.42:8443
+[vidit] Server running at https://<your-lan-ip>:8443
 ```
 
 Open that URL in your browser. Your browser will warn about the self-signed cert — this is safe. The connection is encrypted with TLS 1.3.
