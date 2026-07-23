@@ -82,23 +82,78 @@ const MIME = {
   '.md':   'text/markdown; charset=utf-8',
 };
 
+// ── Rate limiter ──────────────────────────────────────────────────────────
+const RATE_WINDOW = 60_000;
+const RATE_MAX = 100;
+const rateMap = new Map();
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entries] of rateMap) {
+    const valid = entries.filter(t => now - t < RATE_WINDOW);
+    if (valid.length) rateMap.set(ip, valid);
+    else rateMap.delete(ip);
+  }
+}, 30_000);
+
+function isRateLimited(ip) {
+  const now = Date.now();
+  let entries = rateMap.get(ip);
+  if (!entries) {
+    entries = [];
+    rateMap.set(ip, entries);
+  }
+  entries.push(now);
+  return entries.filter(t => now - t < RATE_WINDOW).length > RATE_MAX;
+}
+
 // ── Security headers applied to every response ────────────────────────────
 const SECURITY_HEADERS = {
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'no-referrer',
+  'Permissions-Policy': 'camera=self, microphone=self, geolocation=self',
 };
+
+const MAX_BODY = 10 * 1024 * 1024;
 
 function serve(req, res) {
   for (const [k, v] of Object.entries(SECURITY_HEADERS)) {
     res.setHeader(k, v);
   }
 
+  // Rate limit
+  const ip = req.socket.remoteAddress || 'unknown';
+  if (isRateLimited(ip)) {
+    res.writeHead(429, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Too many requests');
+    return;
+  }
+
+  // Body size limit
+  const cl = parseInt(req.headers['content-length'], 10);
+  if (cl > MAX_BODY) {
+    res.writeHead(413, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Request too large');
+    return;
+  }
+
+  // Log request
+  log(`${req.method} ${req.url} from ${ip}`);
+
   // Normalise path — default to index.html
   let p = req.url.split('?')[0].split('#')[0];
   if (p === '/') p = '/index.html';
   const filePath = path.normalize(path.join(ROOT, p));
+
+  // Only allow known extensions
+  const ext = path.extname(filePath).toLowerCase();
+  if (!MIME[ext]) {
+    res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Forbidden');
+    return;
+  }
 
   // Prevent directory traversal
   if (!filePath.startsWith(ROOT)) {
@@ -113,8 +168,7 @@ function serve(req, res) {
       res.end('Not found');
       return;
     }
-    const ext = path.extname(filePath).toLowerCase();
-    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+    res.writeHead(200, { 'Content-Type': MIME[ext] });
     res.end(data);
   });
 }

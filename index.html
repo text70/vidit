@@ -407,6 +407,10 @@ const presetSelect = document.getElementById('presetSelect');
 const startBtn = document.getElementById('startBtn');
 const exportBtn = document.getElementById('exportBtn');
 const clearLogBtn = document.getElementById('clearLogBtn');
+
+function validateBaseURL(url) {
+  return /^https?:\/\/.+$/i.test(url);
+}
 const logEntries = document.getElementById('logEntries');
 const logCount = document.getElementById('logCount');
 const statusDot = document.getElementById('statusDot');
@@ -507,8 +511,10 @@ cameraSelect.addEventListener('change', () => initCamera(cameraSelect.value));
 //  Connection health
 // ============================================================
 async function checkConnection() {
+  const u = baseURL.value.trim();
+  if (!validateBaseURL(u)) { setStatus('red', 'Invalid base URL'); return false; }
   try {
-    const res = await fetch(`${baseURL.value}/v1/models`, { signal: AbortSignal.timeout(5000) });
+    const res = await fetch(`${u}/v1/models`, { signal: AbortSignal.timeout(5000) });
     if (res.ok) { setStatus('green', 'Server connected'); return true; }
     setStatus('yellow', `Server: ${res.status}`);
     return false;
@@ -600,7 +606,9 @@ function buildPayload(instruction, imageBase64URL, stream) {
 }
 
 async function sendRequest(instruction, imageBase64URL) {
-  const res = await fetch(`${baseURL.value}/v1/chat/completions`, {
+  const u = baseURL.value.trim();
+  if (!validateBaseURL(u)) throw new Error('Invalid base URL');
+  const res = await fetch(`${u}/v1/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(buildPayload(instruction, imageBase64URL, false))
@@ -614,7 +622,9 @@ async function sendRequest(instruction, imageBase64URL) {
 }
 
 async function sendRequestStreaming(instruction, imageBase64URL, onToken) {
-  const res = await fetch(`${baseURL.value}/v1/chat/completions`, {
+  const u = baseURL.value.trim();
+  if (!validateBaseURL(u)) throw new Error('Invalid base URL');
+  const res = await fetch(`${u}/v1/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(buildPayload(instruction, imageBase64URL, true))
@@ -861,8 +871,10 @@ function playAlertSound() {
 // ============================================================
 async function handleStart() {
   if (isProcessing) return;
+  const u = baseURL.value.trim();
+  if (!validateBaseURL(u)) { alert('Invalid Base API URL'); return; }
   const ok = await checkConnection();
-  if (!ok) { alert('Cannot reach the server at ' + baseURL.value); return; }
+  if (!ok) { alert('Cannot reach the server at ' + u); return; }
 
   isProcessing = true;
   startBtn.textContent = '⏹ Stop';

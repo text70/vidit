@@ -90,7 +90,11 @@ Click **Start** and grant camera permission. The page sends each webcam frame to
 - **TLS 1.3 only** — the built-in server rejects anything below TLS 1.3
 - **ECDSA P-384 certificate** — auto-generated on first run
 - **Content Security Policy** — restricts resource origins, blocks inline event handlers and `javascript:` URLs
-- **Security headers** — HSTS, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`
+- **Security headers** — HSTS, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Permissions-Policy`
+- **Rate limiter** — 100 requests per minute per IP, cleans stale entries every 30s
+- **Body size limit** — 10MB max request body
+- **File type allowlist** — only known extensions (`.html`, `.js`, `.css`, `.png`, etc.) are served
+- **baseURL validation** — the frontend rejects non-`http://`/`https://` URLs before any fetch call
 - **Zero dependencies** — `server.js` uses only Node.js built-in modules; no npm packages
 - **Local by design** — all frames stay on your machine; the only network call is to the configured API endpoint
 
