@@ -34,6 +34,8 @@ This serves the page over HTTPS at `https://localhost:8443` with:
 
 Open `https://localhost:8443` in your browser. Accept the self-signed certificate warning (since the cert is generated locally).
 
+> **Why the warning?** The certificate is self-signed — your browser can't verify it against a public Certificate Authority, so it shows a warning. This is normal and safe for local use. The connection is still encrypted with TLS 1.3 and a P-384 key. To eliminate the warning, use [`mkcert`](https://github.com/FiloSottile/mkcert) to generate a locally-trusted certificate: `mkcert -key-file key.pem -cert-file cert.pem localhost 127.0.0.1`.
+
 > You can also open `index.html` directly from the filesystem (`file://`), but camera access may be restricted depending on the browser.
 
 ### 3. Start the page
