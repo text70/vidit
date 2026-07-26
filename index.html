@@ -327,6 +327,9 @@ input[type="checkbox"] { accent-color: var(--accent); }
       <label>Stream: <input type="checkbox" id="streamMode" checked></label>
     </div>
     <div class="row" style="margin-top:8px">
+      <label>Max tokens: <input type="range" id="maxTokens" min="500" max="5000" step="100" value="2000" style="width:120px"> <span id="maxTokensVal">2000</span></label>
+    </div>
+    <div class="row" style="margin-top:8px">
       <label>Keywords: <input type="text" id="alertKeywords" placeholder="person,car,animal" style="width:160px"></label>
       <label>Preset: <select id="presetSelect">
         <option value="custom">Custom</option>
@@ -423,6 +426,8 @@ const darkToggle = document.getElementById('darkToggle');
 const savePresetBtn = document.getElementById('savePresetBtn');
 const fpsDisplay = document.getElementById('fpsDisplay');
 const bgMode = document.getElementById('bgMode');
+const maxTokens = document.getElementById('maxTokens');
+const maxTokensVal = document.getElementById('maxTokensVal');
 
 // ============================================================
 //  localStorage
@@ -443,7 +448,8 @@ function _saveState() {
     alertKeywords: alertKeywords.value,
     preset: presetSelect.value,
     bgMode: bgMode.checked,
-    dark: document.body.classList.contains('dark')
+    dark: document.body.classList.contains('dark'),
+    maxTokens: maxTokens.value
   };
   try { localStorage.setItem('vidit-state', JSON.stringify(state)); } catch (e) {}
 }
@@ -463,18 +469,20 @@ function loadState() {
     if (state.preset) presetSelect.value = state.preset;
     bgMode.checked = !!state.bgMode;
     if (state.dark) document.body.classList.add('dark');
+    if (state.maxTokens) { maxTokens.value = state.maxTokens; maxTokensVal.textContent = state.maxTokens; }
   } catch (e) {}
 }
 
 [
   baseURL, instructionText, intervalSelect, motionSensitivity,
-  jsonMode, streamMode, alertKeywords, presetSelect, bgMode
+  jsonMode, streamMode, alertKeywords, presetSelect, bgMode, maxTokens
 ].forEach(el => {
   el.addEventListener('change', saveState);
   if (el.tagName === 'INPUT' && !['checkbox', 'range'].includes(el.type)) {
     el.addEventListener('input', saveState);
   }
 });
+maxTokens.addEventListener('input', () => { maxTokensVal.textContent = maxTokens.value; });
 
 // ============================================================
 //  Dark mode
@@ -583,7 +591,7 @@ function computeMotionScore(current, prev, w, h) {
 function hasMotion() {
   const sens = parseInt(motionSensitivity.value, 10);
   if (sens === 0) return true;
-  const thresholds = [0, 200, 100, 40, 5];
+  const thresholds = [0, 250, 120, 50, 15];
   const ctx = auxCanvas.getContext('2d');
   const w = auxCanvas.width, h = auxCanvas.height;
   if (!w || !h) return false;
@@ -622,7 +630,7 @@ async function fetchJSON(url, options) {
 
 function buildPayload(instruction, imageBase64URL, stream) {
   return {
-    max_tokens: 2000,
+    max_tokens: parseInt(maxTokens.value, 10),
     stream: stream || false,
     messages: [{
       role: 'user',
