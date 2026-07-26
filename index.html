@@ -313,6 +313,8 @@ input[type="checkbox"] { accent-color: var(--accent); }
         <option value="1000">1s</option>
         <option value="2000">2s</option>
         <option value="5000">5s</option>
+        <option value="7000">7s</option>
+        <option value="10000">10s</option>
       </select></label>
       <label>Motion: <select id="motionSensitivity">
         <option value="0">Disabled</option>
@@ -620,7 +622,7 @@ async function fetchJSON(url, options) {
 
 function buildPayload(instruction, imageBase64URL, stream) {
   return {
-    max_tokens: 100,
+    max_tokens: 2000,
     stream: stream || false,
     messages: [{
       role: 'user',
@@ -642,17 +644,6 @@ async function sendRequest(instruction, imageBase64URL) {
   });
   return data.choices[0].message.content;
 }
-
-async function sendRequestStreaming(instruction, imageBase64URL, onToken) {
-  const u = baseURL.value.trim();
-  if (!validateBaseURL(u)) throw new Error('Invalid base URL');
-  const res = await fetch(`${u}/v1/chat/completions`, {
-     method: 'POST',
-     headers: { 'Content-Type': 'application/json' },
-     body: JSON.stringify(buildPayload(instruction, imageBase64URL, false))
-   });
-   return data.choices[0].message.content;
- }
 
 async function sendRequestStreaming(instruction, imageBase64URL, onToken) {
   const u = baseURL.value.trim();
